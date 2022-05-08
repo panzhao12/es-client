@@ -1,86 +1,54 @@
 const { Client } = require('@elastic/elasticsearch');
 const fs = require('fs');
-const config  = require('./config');
+const config = require('./config');
+const dataset = require('./data.json');
 
-const client = new Client({
-     node: 'https://localhost:9200',
-     auth: {
-       username: config.username,
-       password: config.password
-     },
-     tls: {
-          ca: fs.readFileSync('./http_ca.crt'),
-          rejectUnauthorized: false
-     }
-})
+let client;
 
-client.ping()
-  .then(res => console.log('connection success', res))
-  .catch(err => console.error('wrong connection', err));
-
-// client.info()
-//   .then(response => console.log(response))
-//   .catch(error => console.error(error));
-
-async function run() {
-     await client.index({
-          index: 'game-of-thrones',
-          body: {
-          character: 'Ned Stark',
-          quote: 'Winter is coming.'
+function connect() {
+     // Connection configuration
+     client = new Client({
+          node: 'https://localhost:9200',
+          auth: {
+               username: config.username,
+               password: config.password
+          },
+          tls: {
+               ca: fs.readFileSync('./http_ca.crt'),
+               rejectUnauthorized: false
           }
-     })
+     });
 
-     await client.index({
-          index: 'game-of-thrones',
-          body: {
-          character: 'Daenerys Targaryen',
-          quote: 'I am the blood of the dragon.'
-          }
-     })
-
-     await client.index({
-          index: 'game-of-thrones',
-          body: {
-          character: 'Tyrion Lannister',
-          quote: 'A mind needs books like a sword needs whetstone.'
-          }
-     })
-
-     await client.indices.refresh({index: 'game-of-thrones'})
-
-     const { hits } = await client.search({
-            index: 'game-of-thrones',
-            body: {
-              query: {
-                match: { quote: 'winter' }
-               // "match_all": {}
-              }
-            }
-          })
-
-     console.log(hits.hits)
+     client.ping()
+          .then(res => console.log('connection success', res))
+          .catch(err => console.error('wrong connection', err));
 }
 
-run().catch(console.log)
+async function run() {
+     // Load data into ES
+     const result = await client.helpers.bulk({
+          datasource: dataset,
+          onDocument(doc) {
+               return {
+                    index: { _index: 'test_pan2' }
+               }
+          }
+     })
+     const count = await client.count({ index: 'test_pan2' })
+     console.log(count)
 
-// async function update() {
-//      await client.update({
-//        index: 'game-of-thrones',
-//        id: 'hElcioABfWZdDdAw0MnZ',
-//        body: {
-//          script: {
-//            source: "ctx._source.birthplace = 'Winterfell2'"
-//          }
-//        }
-//      })
-//      const { _source } = await client.get({
-//        index: 'game-of-thrones',
-//        id: 'hElcioABfWZdDdAw0MnZ'
-//      })
-   
-//      console.log(_source)
-//    }
-   
-// update().catch(console.log)
+     // Fire the search
+     const { hits } = await client.search({
+          index: 'test_pan2',
+          body: {
+               query: {
+                    //  match: { quote: 'winter' }
+                    "match_all": {}
+               }
+          }
+     })
+     console.log("result: ", hits.hits);
+}
 
+connect();
+run().catch(console.log);
