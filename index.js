@@ -1,11 +1,22 @@
 const { Client } = require('@elastic/elasticsearch');
 const fs = require('fs');
+const fetch = require('node-fetch');
 const config = require('./config');
-const dataset = require('./data.json');
 
 let client;
+let dataset = [];
 
-function connect() {
+// Fetch data
+function getData() {
+     const promise = fetch('https://dummyjson.com/products')
+     .then(res => res.json())
+     .then(data => dataset = data.products);
+     return promise;
+}
+
+// Connect to ES
+async function connect() {
+     console.log("Connecting...");
      // Connection configuration
      client = new Client({
           node: 'https://localhost:9200',
@@ -19,36 +30,50 @@ function connect() {
           }
      });
 
-     client.ping()
+     await client.ping()
           .then(res => console.log('connection success', res))
           .catch(err => console.error('wrong connection', err));
 }
 
-async function run() {
-     // Load data into ES
-     const result = await client.helpers.bulk({
+// Indexing
+async function index() {
+     console.log("Indexing...");
+     // Bulk operation
+     const bulk = await client.helpers.bulk({
           datasource: dataset,
+           // Load the dataset into ES
           onDocument(doc) {
                return {
-                    index: { _index: 'test_pan2' }
+                    create: {
+                         _index: 'test_pan2',
+                         _id: doc.id
+                    },
                }
-          }
-     })
+          },
+          refreshOnCompletion: true
+     });
      const count = await client.count({ index: 'test_pan2' })
      console.log(count)
-
-     // Fire the search
-     const { hits } = await client.search({
-          index: 'test_pan2',
-          body: {
-               query: {
-                    //  match: { quote: 'winter' }
-                    "match_all": {}
-               }
-          }
-     })
-     console.log("result: ", hits.hits);
+     console.log("Bulk result: ", bulk);
 }
 
-connect();
-run().catch(console.log);
+// Searching
+async function search() {
+     console.log("Searching...");
+     // Fire the search
+     const result = await client.helpers.search({
+          index: 'test_pan2',
+          query: {
+               //  match: { quote: 'winter' }
+               "match_all": {}
+          }
+     })
+     console.log("result: ", result);
+}
+
+// ---- Run the App ----
+getData()
+.then(() => connect())
+.then(() => index())
+.then(() => search())
+.catch((e) => console.log(e));
