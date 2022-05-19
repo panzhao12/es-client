@@ -1,18 +1,9 @@
 const { Client } = require('@elastic/elasticsearch');
 const fs = require('fs');
-const fetch = require('node-fetch');
 const config = require('./config');
+const dataset = require('./data.json')
 
 let client;
-let dataset = [];
-
-// Fetch data
-function getData() {
-     const promise = fetch('https://dummyjson.com/products')
-     .then(res => res.json())
-     .then(data => dataset = data.products);
-     return promise;
-}
 
 // Connect to ES
 async function connect() {
@@ -29,7 +20,6 @@ async function connect() {
                rejectUnauthorized: false
           }
      });
-
      await client.ping()
           .then(res => console.log('connection success', res))
           .catch(err => console.error('wrong connection', err));
@@ -72,8 +62,7 @@ async function search() {
 }
 
 // ---- Run the App ----
-getData()
-.then(() => connect())
+connect()
 .then(() => index())
 .then(() => search())
 .catch((e) => console.log(e));

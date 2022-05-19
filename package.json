@@ -10,7 +10,6 @@
   "author": "Pan_Zhao",
   "license": "ISC",
   "dependencies": {
-    "@elastic/elasticsearch": "^8.1.0",
-    "node-fetch": "^2.6.7"
+    "@elastic/elasticsearch": "^8.1.0"
   }
 }
